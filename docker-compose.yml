@@ -45,7 +45,7 @@ services:
       OPENCLAW_DIR: /data/openclaw
       MEMORY_DB_PATH: /data/openclaw/memory/lancedb-pro
     volumes:
-      - ~/.openclaw:/data/openclaw:ro
+      - ~/.openclaw:/data/openclaw
     restart: unless-stopped
 
   # ── Cron Dashboard (demo: no docker socket, ephemeral DB) ────────────────
