@@ -1,0 +1,250 @@
+/** In-memory store for DEMO_MODE — same interface as lancedb.ts */
+
+import { randomUUID } from 'node:crypto';
+import { DEMO_MEMORIES, DEMO_WORKSPACES, DEMO_SKILLS, type DemoMemory } from './demo-data.js';
+
+// Mutable copy of demo data
+let memories: DemoMemory[] = [...DEMO_MEMORIES];
+
+export interface MemoryRecord {
+  id: string;
+  text: string;
+  category: string;
+  scope: string;
+  importance: number;
+  timestamp: number;
+  metadata: string;
+}
+
+export interface MemoryInput {
+  text: string;
+  category: string;
+  scope: string;
+  importance: number;
+  metadata?: string;
+}
+
+export async function listMemories(opts: {
+  scope?: string;
+  category?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ memories: MemoryRecord[]; total: number }> {
+  const limit = opts.limit ?? 20;
+  const offset = opts.offset ?? 0;
+
+  let filtered = [...memories];
+
+  if (opts.scope) filtered = filtered.filter(m => m.scope === opts.scope);
+  if (opts.category) filtered = filtered.filter(m => m.category === opts.category);
+
+  if (opts.search && opts.search.trim()) {
+    const q = opts.search.toLowerCase();
+    filtered = filtered.filter(m => m.text.toLowerCase().includes(q));
+  }
+
+  // Sort by timestamp descending
+  filtered.sort((a, b) => b.timestamp - a.timestamp);
+
+  const total = filtered.length;
+  const sliced = filtered.slice(offset, offset + limit);
+
+  return { memories: sliced, total };
+}
+
+export async function getMemory(id: string): Promise<MemoryRecord | null> {
+  return memories.find(m => m.id === id) ?? null;
+}
+
+export async function createMemory(input: MemoryInput): Promise<MemoryRecord> {
+  // Demo mode: return fake result without persisting
+  return {
+    id: randomUUID(),
+    text: input.text,
+    category: input.category,
+    scope: input.scope,
+    importance: input.importance,
+    timestamp: Date.now(),
+    metadata: input.metadata ?? '{}',
+  };
+}
+
+export async function updateMemory(id: string, input: Partial<MemoryInput>): Promise<MemoryRecord | null> {
+  // Demo mode: return updated view without persisting
+  const existing = memories.find(m => m.id === id);
+  if (!existing) return null;
+
+  return {
+    ...existing,
+    ...(input.text !== undefined && { text: input.text }),
+    ...(input.category !== undefined && { category: input.category }),
+    ...(input.scope !== undefined && { scope: input.scope }),
+    ...(input.importance !== undefined && { importance: input.importance }),
+    ...(input.metadata !== undefined && { metadata: input.metadata }),
+  };
+}
+
+export async function deleteMemory(_id: string): Promise<boolean> {
+  // Demo mode: pretend success without persisting
+  return true;
+}
+
+export async function getScopes(): Promise<{ scope: string; count: number }[]> {
+  const counts = new Map<string, number>();
+  for (const m of memories) {
+    counts.set(m.scope, (counts.get(m.scope) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([scope, count]) => ({ scope, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export async function getStats(): Promise<{
+  total: number;
+  byScope: { scope: string; count: number }[];
+  byCategory: { category: string; count: number }[];
+}> {
+  const scopeCounts = new Map<string, number>();
+  const catCounts = new Map<string, number>();
+  for (const m of memories) {
+    scopeCounts.set(m.scope, (scopeCounts.get(m.scope) ?? 0) + 1);
+    catCounts.set(m.category, (catCounts.get(m.category) ?? 0) + 1);
+  }
+  return {
+    total: memories.length,
+    byScope: Array.from(scopeCounts.entries()).map(([scope, count]) => ({ scope, count })).sort((a, b) => b.count - a.count),
+    byCategory: Array.from(catCounts.entries()).map(([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count),
+  };
+}
+
+// === Workspace helpers for demo mode ===
+
+// Mutable workspace file storage (initialized from DEMO_WORKSPACES)
+const wsFiles = new Map<string, Map<string, string>>();
+const wsMemFiles = new Map<string, Map<string, string>>();
+
+for (const ws of DEMO_WORKSPACES) {
+  wsFiles.set(ws.name, new Map(Object.entries(ws.files)));
+  wsMemFiles.set(ws.name, new Map(Object.entries(ws.memoryFiles)));
+}
+
+export function getDemoWorkspaceNames(): string[] {
+  return DEMO_WORKSPACES.map(w => w.name).sort();
+}
+
+export function getDemoWorkspaceInfo(name: string) {
+  const files = wsFiles.get(name);
+  const memFiles = wsMemFiles.get(name);
+  if (!files) return null;
+
+  const now = new Date().toISOString();
+  return {
+    name,
+    files: Array.from(files.entries()).map(([n, content]) => ({
+      name: n,
+      size: Buffer.byteLength(content, 'utf-8'),
+      modified: now,
+    })),
+    memoryFiles: memFiles
+      ? Array.from(memFiles.entries()).map(([n, content]) => ({
+          name: n,
+          size: Buffer.byteLength(content, 'utf-8'),
+          modified: now,
+        }))
+      : [],
+  };
+}
+
+export function getDemoWorkspaceFile(wsName: string, fileName: string): string | null {
+  return wsFiles.get(wsName)?.get(fileName) ?? null;
+}
+
+export function saveDemoWorkspaceFile(wsName: string, fileName: string, _content: string): boolean {
+  // Demo mode: pretend success without persisting
+  return wsFiles.has(wsName);
+}
+
+export function getDemoWorkspaceMemoryFile(wsName: string, fileName: string): string | null {
+  return wsMemFiles.get(wsName)?.get(fileName) ?? null;
+}
+
+// === Skills helpers for demo mode ===
+
+// Mutable copy of demo skills (deep clone)
+let skillOwners: typeof DEMO_SKILLS = JSON.parse(JSON.stringify(DEMO_SKILLS));
+
+export function getDemoSkills() {
+  const totalSkills = skillOwners.reduce((sum, o) => sum + o.skills.length, 0);
+  return { owners: skillOwners, totalSkills };
+}
+
+export function deleteDemoSkill(ownerName: string, skillName: string): boolean {
+  const owner = skillOwners.find(o => o.name === ownerName);
+  if (!owner) return false;
+  const idx = owner.skills.findIndex(s => s.name === skillName);
+  if (idx === -1) return false;
+  owner.skills.splice(idx, 1);
+  // Remove owner if no skills left
+  if (owner.skills.length === 0) {
+    skillOwners = skillOwners.filter(o => o.name !== ownerName);
+  }
+  return true;
+}
+
+export function moveDemoSkill(fromOwner: string, skillName: string, toOwner: string): string | null {
+  const src = skillOwners.find(o => o.name === fromOwner);
+  if (!src) return 'source owner not found';
+  const skillIdx = src.skills.findIndex(s => s.name === skillName);
+  if (skillIdx === -1) return 'skill not found';
+  let dst = skillOwners.find(o => o.name === toOwner);
+  if (dst && dst.skills.some(s => s.name === skillName)) return 'skill already exists at destination';
+  // Create destination owner if needed
+  if (!dst) {
+    dst = { name: toOwner, label: toOwner.replace('workspace-', ''), skills: [] };
+    skillOwners.push(dst);
+  }
+  const [skill] = src.skills.splice(skillIdx, 1);
+  dst.skills.push(skill);
+  if (src.skills.length === 0) {
+    skillOwners = skillOwners.filter(o => o.name !== fromOwner);
+  }
+  return null; // success
+}
+
+export function copyDemoSkill(fromOwner: string, skillName: string, toOwner: string): string | null {
+  const src = skillOwners.find(o => o.name === fromOwner);
+  if (!src) return 'source owner not found';
+  const skill = src.skills.find(s => s.name === skillName);
+  if (!skill) return 'skill not found';
+  let dst = skillOwners.find(o => o.name === toOwner);
+  if (dst && dst.skills.some(s => s.name === skillName)) return 'skill already exists at destination';
+  if (!dst) {
+    dst = { name: toOwner, label: toOwner.replace('workspace-', ''), skills: [] };
+    skillOwners.push(dst);
+  }
+  dst.skills.push(JSON.parse(JSON.stringify(skill)));
+  return null;
+}
+
+// === Cron Jobs helpers for demo mode ===
+
+import { DEMO_CRON_JOBS, type DemoCronJob } from './demo-data.js';
+
+// Mutable copy
+let cronJobs: DemoCronJob[] = JSON.parse(JSON.stringify(DEMO_CRON_JOBS));
+
+export function getDemoCronJobs(): DemoCronJob[] {
+  return cronJobs;
+}
+
+export function updateDemoCronJob(id: string, data: { enabled?: boolean; message?: string }): DemoCronJob | null {
+  const job = cronJobs.find(j => j.id === id);
+  if (!job) return null;
+  if (data.enabled !== undefined) job.enabled = data.enabled;
+  if (data.message !== undefined) {
+    if (!job.payload) job.payload = { kind: 'prompt' };
+    job.payload.message = data.message;
+  }
+  return job;
+}

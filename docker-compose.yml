@@ -34,18 +34,14 @@ services:
   # ── Agents Dashboard ─────────────────────────────────────────────────────
   agents-dashboard:
     build:
-      context: ${SERVICES_DIR:-~/projects}/agents-dashboard
+      context: ./agents-dashboard
       args:
         VITE_BASE_PATH: /
     ports:
       - "3001:3001"
     environment:
       TZ: Asia/Taipei
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENCLAW_DIR: /data/openclaw
-      MEMORY_DB_PATH: /data/openclaw/memory/lancedb-pro
-    volumes:
-      - ~/.openclaw:/data/openclaw
+      DEMO_MODE: "true"
     restart: unless-stopped
 
   # ── Cron Dashboard (demo: no docker socket, ephemeral DB) ────────────────
