@@ -1,21 +1,5 @@
 services:
 
-  # ── Nginx reverse proxy ──────────────────────────────────────────────────
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - pit-stop
-      - agents-dashboard
-      - cron-dashboard
-      - pixel-office
-    restart: unless-stopped
-    environment:
-      TZ: Asia/Taipei
-
   # ── OpenClaw gateway (demo agents) ──────────────────────────────────────
   openclaw:
     image: ghcr.io/openclaw/openclaw:${OPENCLAW_VERSION:-2026.3.12}
@@ -30,14 +14,14 @@ services:
       TZ: Asia/Taipei
       OPENCLAW_GATEWAY_PORT: "18789"
     volumes:
-      - ~/.openclaw:/home/node/.openclaw:ro
+      - ~/.openclaw:/home/node/.openclaw
     restart: unless-stopped
 
   # ── OpenClaw Pit Stop (demo) ─────────────────────────────────────────────
   pit-stop:
     build: ${SERVICES_DIR:-~/projects}/pit-stop-demo
-    expose:
-      - "18790"
+    ports:
+      - "18790:18790"
     environment:
       TZ: Asia/Taipei
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -53,8 +37,8 @@ services:
       context: ${SERVICES_DIR:-~/projects}/agents-dashboard
       args:
         VITE_BASE_PATH: /
-    expose:
-      - "3001"
+    ports:
+      - "3001:3001"
     environment:
       TZ: Asia/Taipei
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -66,14 +50,15 @@ services:
 
   # ── Cron Dashboard (demo: no docker socket, ephemeral DB) ────────────────
   cron-dashboard:
-    build: ${SERVICES_DIR:-~/projects}/openclaw-docker-public/cron-dashboard
-    expose:
-      - "5000"
+    build: ./cron-dashboard
+    ports:
+      - "5000:5000"
     environment:
       TZ: Asia/Taipei
       DASHBOARD_PASSWORD: ${CRON_DASHBOARD_PASSWORD:-demo}
       SECRET_KEY: ${CRON_DASHBOARD_SECRET_KEY:-demo-secret-key}
       LOG_RETENTION_DAYS: "7"
+      DEMO_MODE: "true"
     # No docker socket mount → tasks won't actually execute (demo intent)
     # No data volume → DB resets on container restart (demo intent)
     restart: unless-stopped
@@ -81,8 +66,8 @@ services:
   # ── Pixel Office ─────────────────────────────────────────────────────────
   pixel-office:
     build: ${SERVICES_DIR:-~/projects}/pixel-office
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     environment:
       TZ: Asia/Taipei
     volumes:
@@ -93,8 +78,8 @@ services:
   # Uncomment to enable LLM observability UI
   # phoenix:
   #   image: arizephoenix/phoenix:latest
-  #   expose:
-  #     - "6006"
+  #   ports:
+  #     - "6006:6006"
   #   environment:
   #     TZ: Asia/Taipei
   #     PHOENIX_WORKING_DIR: /phoenix_data
