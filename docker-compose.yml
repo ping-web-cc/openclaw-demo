@@ -70,18 +70,17 @@ services:
       - ~/.openclaw:/root/.openclaw-personal:ro
     restart: unless-stopped
 
-  # ── Arize Phoenix (optional, ~1.5GB RAM) ─────────────────────────────────
-  # Uncomment to enable LLM observability UI
-  # phoenix:
-  #   image: arizephoenix/phoenix:latest
-  #   ports:
-  #     - "6006:6006"
-  #   environment:
-  #     TZ: Asia/Taipei
-  #     PHOENIX_WORKING_DIR: /phoenix_data
-  #   volumes:
-  #     - phoenix-data:/phoenix_data
-  #   restart: unless-stopped
+  # ── Arize Phoenix (LLM observability UI) ─────────────────────────────────
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006"
+    environment:
+      TZ: Asia/Taipei
+      PHOENIX_WORKING_DIR: /phoenix_data
+    volumes:
+      - phoenix-data:/phoenix_data
+    restart: unless-stopped
 
-# volumes:
-#   phoenix-data:
+volumes:
+  phoenix-data:
