@@ -8,8 +8,11 @@ services:
       - openclaw.mjs
       - gateway
       - --allow-unconfigured
+      - --bind
+      - lan
     ports:
       - "18789:18789"
+      - "18791:18791"
     environment:
       TZ: Asia/Taipei
       OPENCLAW_GATEWAY_PORT: "18789"
